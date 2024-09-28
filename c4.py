@@ -5,35 +5,16 @@ from matplotlib.animation import FuncAnimation
 import os
 import base64
 
-# Function to create a text input with validation
-def input_with_validation(label, value, step, min_value=None, max_value=None):
-    input_val = st.sidebar.text_input(label, value=str(value), key=f"{label}_input")
-    
-    try:
-        input_val = float(input_val)
-        if min_value is not None and input_val < min_value:
-            st.sidebar.warning(f"{label} cannot be less than {min_value}")
-            input_val = min_value
-        if max_value is not None and input_val > max_value:
-            st.sidebar.warning(f"{label} cannot be greater than {max_value}")
-            input_val = max_value
-    except ValueError:
-        st.sidebar.error(f"Invalid input for {label}. Using default value.")
-        input_val = value  # Reset if invalid input
-    
-    return input_val
-
-# Vector class to represent an oscillating vector along the x-axis or at a given angle
+# Vector class to represent an oscillating vector along either the x or y axis
 class Vector:
-    def __init__(self, amplitude, frequency, angle=0, phase_shift=0, color='blue', point_shape='o', point_size=5, line_style='-', dotted=False):
+    def __init__(self, amplitude, frequency, axis='x', color='blue', point_shape='o', point_size=10, line_style='-', dotted=False):
         """
         Initialize a Vector with its properties.
 
         Parameters:
         - amplitude (float): Amplitude of the oscillation (i.e., maximum displacement).
         - frequency (float): Frequency of the sine wave oscillation (in Hz).
-        - angle (float): Angle of the second vector in degrees relative to the x-axis.
-        - phase_shift (float): Phase shift in degrees.
+        - axis (str): Axis of the oscillation ('x' or 'y').
         - color (str): Color of the vector.
         - point_shape (str): Shape of the point (e.g., 'o' for circle, '^' for arrowhead).
         - point_size (int): Size of the point.
@@ -42,8 +23,7 @@ class Vector:
         """
         self.amplitude = amplitude
         self.frequency = frequency
-        self.angle = np.radians(angle)  # Convert angle to radians
-        self.phase_shift = np.radians(phase_shift)  # Convert phase shift to radians
+        self.axis = axis
         self.color = color
         self.point_shape = point_shape
         self.point_size = point_size
@@ -82,52 +62,36 @@ class Vector:
         line_style_self = '--' if self.dotted else self.line_style
         line_style_other = '--' if other_vector.dotted else other_vector.line_style
 
-        # Draw static circle for amplitude reference
-        circle = plt.Circle((0, 0), radius=self.amplitude, color='grey', linestyle=':', fill=False)
-        ax.add_patch(circle)
-
-        # Create two vectors: one on the x-axis and the other at a given angle
+        # Create two vectors: one on the x-axis and one on the y-axis
         vector_self, = ax.plot([], [], marker=self.point_shape, markersize=self.point_size, color=self.color, linestyle=line_style_self)
         vector_other, = ax.plot([], [], marker=other_vector.point_shape, markersize=other_vector.point_size, color=other_vector.color, linestyle=line_style_other)
-
-        # Resultant vector (sum of the two)
-        resultant_vector, = ax.plot([], [], marker='o', markersize=self.point_size + 2, color='green', linestyle='-', label='Resultant')
-
-        # Traced path of the resultant vector
-        path_trace, = ax.plot([], [], color='red', linestyle=':', linewidth=1)
-
-        trace_x, trace_y = [], []
 
         def init():
             vector_self.set_data([], [])
             vector_other.set_data([], [])
-            resultant_vector.set_data([], [])
-            path_trace.set_data([], [])
-            return vector_self, vector_other, resultant_vector, path_trace
+            return vector_self, vector_other
 
         def update(frame):
             # Calculate the oscillation for the first vector (x-axis)
-            x_self = self.amplitude * np.sin(2 * np.pi * self.frequency * time[frame])
-            y_self = 0
+            if self.axis == 'x':
+                x_self = self.amplitude * np.sin(2 * np.pi * self.frequency * time[frame])
+                y_self = 0
+            else:
+                x_self = 0
+                y_self = self.amplitude * np.sin(2 * np.pi * self.frequency * time[frame])
 
-            # Calculate the oscillation for the second vector (at the given angle, with phase shift)
-            x_other = other_vector.amplitude * np.cos(other_vector.angle) * np.sin(2 * np.pi * other_vector.frequency * time[frame] + other_vector.phase_shift)
-            y_other = other_vector.amplitude * np.sin(other_vector.angle) * np.sin(2 * np.pi * other_vector.frequency * time[frame] + other_vector.phase_shift)
-
-            # Resultant vector is the sum of the two components
-            x_res = x_self + x_other
-            y_res = y_self + y_other
+            # Calculate the oscillation for the second vector (y-axis, 90-degree phase shift)
+            if other_vector.axis == 'y':
+                x_other = 0
+                y_other = other_vector.amplitude * np.sin(2 * np.pi * other_vector.frequency * time[frame] + np.pi / 2)
+            else:
+                x_other = other_vector.amplitude * np.sin(2 * np.pi * other_vector.frequency * time[frame] + np.pi / 2)
+                y_other = 0
 
             vector_self.set_data([0, x_self], [0, y_self])
             vector_other.set_data([0, x_other], [0, y_other])
-            resultant_vector.set_data([0, x_res], [0, y_res])
 
-            # Track the path of the resultant vector
-            trace_x.append(x_res)
-            trace_y.append(y_res)
-            path_trace.set_data(trace_x, trace_y)
-
-            return vector_self, vector_other, resultant_vector, path_trace
+            return vector_self, vector_other
 
         # Create the animation
         ani = FuncAnimation(fig, update, frames=total_frames, init_func=init, blit=True)
@@ -149,14 +113,26 @@ def display_video_in_loop(video_path):
     st.markdown(video_html, unsafe_allow_html=True)
 
 # Streamlit App Title
-st.title("Interactive Oscillating Vectors with Resultant Vector Animation")
+st.title("Interactive Oscillating Vectors Animation")
 
 # Sidebar for shared controls for both vectors
 st.sidebar.header("Shared Oscillation Configuration")
 
-# Amplitude and Frequency configuration common to both vectors with input validation
-amplitude = input_with_validation("Amplitude (Max Displacement for Both Vectors)", value=2.0, step=0.1, min_value=0.1, max_value=5.0)
-frequency = input_with_validation("Frequency (Hz)", value=0.1, step=0.01, min_value=0.01, max_value=1.0)
+# Amplitude and Frequency configuration common to both vectors
+amplitude = st.sidebar.slider(
+    "Amplitude (Max Displacement for Both Vectors)",
+    min_value=0.1,
+    max_value=5.0,
+    value=2.0,
+    step=0.1
+)
+frequency = st.sidebar.slider(
+    "Frequency (Hz)",
+    min_value=0.01,
+    max_value=1.0,
+    value=0.1,
+    step=0.01
+)
 
 # Color selection for both vectors on the same row
 col1, col2 = st.sidebar.columns(2)
@@ -168,25 +144,19 @@ with col2:
 
 # Additional configurations for points
 vector_shape = st.sidebar.selectbox("Point Shape (Applies to Both Vectors)", options=['o', '^', 's', 'D', 'X'])
-vector_size = input_with_validation("Point Size (Applies to Both Vectors)", value=5, step=1, min_value=5, max_value=10)
+vector_size = st.sidebar.slider("Point Size (Applies to Both Vectors)", min_value=5, max_value=20, value=10, step=1)
 vector_dotted = st.sidebar.checkbox("Dotted Line for Both Vectors", value=False)
 
-# Angle input for the second vector with input validation
-angle_vector2 = input_with_validation("Angle of Vector 2 (Degrees)", value=45, step=1, min_value=0, max_value=360)
-
-# Phase shift input for the second vector with input validation
-phase_shift_vector2 = input_with_validation("Phase Shift of Vector 2 (Degrees)", value=90, step=1, min_value=0, max_value=360)
-
 # Create instances for both vectors
-vector1 = Vector(amplitude, frequency, angle=0, color=vector1_color, point_shape=vector_shape, point_size=vector_size, dotted=vector_dotted)
-vector2 = Vector(amplitude, frequency, angle=angle_vector2, phase_shift=phase_shift_vector2, color=vector2_color, point_shape=vector_shape, point_size=vector_size, dotted=vector_dotted)
+vector1 = Vector(amplitude, frequency, axis='x', color=vector1_color, point_shape=vector_shape, point_size=vector_size, dotted=vector_dotted)
+vector2 = Vector(amplitude, frequency, axis='y', color=vector2_color, point_shape=vector_shape, point_size=vector_size, dotted=vector_dotted)
 
 # The duration is calculated based on one full period of the sine wave (1 / frequency)
 duration = 1 / frequency
 
 # Display the oscillating vectors animation as an MP4
 if st.sidebar.button("Start Animation"):
-    # Create animation for the two vectors with the resultant vector
+    # Create animation for the two vectors
     video_file_path = vector1.create_animation(vector2, duration=duration, filename="oscillating_vectors.mp4")
 
     # Read video as bytes and encode it in base64
@@ -195,5 +165,5 @@ if st.sidebar.button("Start Animation"):
     encoded_video = base64.b64encode(video_bytes).decode('utf-8')
 
     # Display the video in loop
-    st.markdown("### Oscillating Vectors with Resultant Vector Animation")
+    st.markdown("### Oscillating Vectors Animation")
     display_video_in_loop(encoded_video)

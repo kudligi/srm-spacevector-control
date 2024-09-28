@@ -25,7 +25,7 @@ def input_with_validation(label, value, step, min_value=None, max_value=None):
 
 # Vector class to represent an oscillating vector along the x-axis or at a given angle
 class Vector:
-    def __init__(self, amplitude, frequency, angle=0, phase_shift=0, color='blue', point_shape='o', point_size=5, line_style='-', dotted=False):
+    def __init__(self, amplitude, frequency, angle=0, phase_shift=0, color='blue', point_shape='o', point_size=10, line_style='-', dotted=False):
         """
         Initialize a Vector with its properties.
 
@@ -82,10 +82,6 @@ class Vector:
         line_style_self = '--' if self.dotted else self.line_style
         line_style_other = '--' if other_vector.dotted else other_vector.line_style
 
-        # Draw static circle for amplitude reference
-        circle = plt.Circle((0, 0), radius=self.amplitude, color='grey', linestyle=':', fill=False)
-        ax.add_patch(circle)
-
         # Create two vectors: one on the x-axis and the other at a given angle
         vector_self, = ax.plot([], [], marker=self.point_shape, markersize=self.point_size, color=self.color, linestyle=line_style_self)
         vector_other, = ax.plot([], [], marker=other_vector.point_shape, markersize=other_vector.point_size, color=other_vector.color, linestyle=line_style_other)
@@ -93,17 +89,11 @@ class Vector:
         # Resultant vector (sum of the two)
         resultant_vector, = ax.plot([], [], marker='o', markersize=self.point_size + 2, color='green', linestyle='-', label='Resultant')
 
-        # Traced path of the resultant vector
-        path_trace, = ax.plot([], [], color='red', linestyle=':', linewidth=1)
-
-        trace_x, trace_y = [], []
-
         def init():
             vector_self.set_data([], [])
             vector_other.set_data([], [])
             resultant_vector.set_data([], [])
-            path_trace.set_data([], [])
-            return vector_self, vector_other, resultant_vector, path_trace
+            return vector_self, vector_other, resultant_vector
 
         def update(frame):
             # Calculate the oscillation for the first vector (x-axis)
@@ -122,12 +112,7 @@ class Vector:
             vector_other.set_data([0, x_other], [0, y_other])
             resultant_vector.set_data([0, x_res], [0, y_res])
 
-            # Track the path of the resultant vector
-            trace_x.append(x_res)
-            trace_y.append(y_res)
-            path_trace.set_data(trace_x, trace_y)
-
-            return vector_self, vector_other, resultant_vector, path_trace
+            return vector_self, vector_other, resultant_vector
 
         # Create the animation
         ani = FuncAnimation(fig, update, frames=total_frames, init_func=init, blit=True)
@@ -168,7 +153,7 @@ with col2:
 
 # Additional configurations for points
 vector_shape = st.sidebar.selectbox("Point Shape (Applies to Both Vectors)", options=['o', '^', 's', 'D', 'X'])
-vector_size = input_with_validation("Point Size (Applies to Both Vectors)", value=5, step=1, min_value=5, max_value=10)
+vector_size = input_with_validation("Point Size (Applies to Both Vectors)", value=10, step=1, min_value=5, max_value=20)
 vector_dotted = st.sidebar.checkbox("Dotted Line for Both Vectors", value=False)
 
 # Angle input for the second vector with input validation
